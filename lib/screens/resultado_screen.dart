@@ -13,7 +13,11 @@ class ResultadoScreen extends StatefulWidget {
   final File imageFile;
   final List<Detection> detections;
 
-  const ResultadoScreen({super.key, required this.imageFile, required this.detections});
+  const ResultadoScreen({
+    super.key,
+    required this.imageFile,
+    required this.detections,
+  });
 
   @override
   State<ResultadoScreen> createState() => _ResultadoScreenState();
@@ -25,6 +29,7 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
 
   Detection? get topDetection {
     if (widget.detections.isEmpty) return null;
+    // Ordenar por confianza (mayor primero)
     widget.detections.sort((a, b) => b.score.compareTo(a.score));
     return widget.detections.first;
   }
@@ -33,38 +38,50 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
     final det = topDetection;
     if (det == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay detecciones para guardar.'))
+        const SnackBar(content: Text('No hay detecciones para guardar.')),
       );
       return;
     }
 
     setState(() => _saving = true);
 
-    // Obtener información de la planta desde el mapa
-    final info = PlantDatabase.getInfo(det.label);
-
-    final plant = Plant(
-      name: info.commonName,
-      scientificName: info.scientificName,
-      description: info.description,
-      imagePath: widget.imageFile.path,
-      detectedLabel: det.label,
-      confidence: det.score,
-    );
-
     try {
+      // Obtener información de la planta
+      final info = PlantDatabase.getInfo(det.label);
+
+      final plant = Plant(
+        name: info.commonName,
+        scientificName: info.scientificName,
+        description: info.description,
+        imagePath: widget.imageFile.path,
+        detectedLabel: det.label,
+        confidence: det.score,
+      );
+
       await db.insertPlant(plant);
+      
       if (!mounted) return;
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✓ Planta guardada en tu colección'),
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text('${info.commonName} guardado en tu colección'),
+            ],
+          ),
           backgroundColor: kDarkGreen,
-        )
+          duration: const Duration(seconds: 2),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error guardando: $e'))
+        SnackBar(
+          content: Text('Error guardando: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -98,6 +115,7 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
             Text(
               content,
               style: const TextStyle(fontSize: 14, color: Colors.black87),
+              textAlign: TextAlign.justify,
             ),
           ],
         ),
@@ -106,6 +124,24 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
   }
 
   Widget _detectionTile(Detection d) {
+    // Obtener el ícono según la planta
+    IconData icon;
+    Color color;
+    
+    switch (d.label.toLowerCase()) {
+      case 'garambullo':
+        icon = Icons.filter_vintage;
+        color = Colors.purple;
+        break;
+      case 'mezquite':
+        icon = Icons.park;
+        color = Colors.brown;
+        break;
+      default:
+        icon = Icons.local_florist;
+        color = kDarkGreen;
+    }
+    
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
@@ -114,13 +150,13 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
       ),
       child: ListTile(
         dense: true,
-        leading: const Icon(Icons.local_florist, color: kDarkGreen),
+        leading: Icon(icon, color: color),
         title: Text(
-          '${d.label} (${(d.score * 100).toStringAsFixed(1)}%)',
+          '${PlantDatabase.getInfo(d.label).commonName} (${(d.score * 100).toStringAsFixed(1)}%)',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          'Posición: (${d.x.toStringAsFixed(0)}, ${d.y.toStringAsFixed(0)})',
+          'Label: ${d.label}',
           style: const TextStyle(fontSize: 12),
         ),
       ),
@@ -162,7 +198,10 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                     label: const Text('Regresar'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kDarkGreen,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
                   ),
                 ],
@@ -171,7 +210,7 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
           : SingleChildScrollView(
               child: Column(
                 children: [
-                  // Imagen con borde superior redondeado
+                  // Imagen
                   Container(
                     width: double.infinity,
                     height: 280,
@@ -192,7 +231,7 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Tarjeta principal con nombre y confianza
+                        // Tarjeta principal
                         Card(
                           elevation: 4,
                           shape: RoundedRectangleBorder(
@@ -204,14 +243,21 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(16),
                               gradient: LinearGradient(
-                                colors: [kDarkGreen, kDarkGreen.withOpacity(0.8)],
+                                colors: [
+                                  kDarkGreen,
+                                  kDarkGreen.withOpacity(0.8)
+                                ],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
                             ),
                             child: Column(
                               children: [
-                                const Icon(Icons.check_circle, color: Colors.white, size: 48),
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
+                                  size: 48,
+                                ),
                                 const SizedBox(height: 12),
                                 Text(
                                   info?.commonName ?? 'Desconocido',
@@ -267,7 +313,9 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                                           )
                                         : const Icon(Icons.save, color: kDarkGreen),
                                     label: Text(
-                                      _saving ? 'Guardando...' : 'Guardar en mi colección',
+                                      _saving
+                                          ? 'Guardando...'
+                                          : 'Guardar en mi colección',
                                       style: const TextStyle(
                                         color: kDarkGreen,
                                         fontSize: 16,
@@ -276,7 +324,9 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                                     ),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -346,7 +396,8 @@ class _ResultadoScreenState extends State<ResultadoScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 12),
-                                  ...widget.detections.map((d) => _detectionTile(d)),
+                                  ...widget.detections
+                                      .map((d) => _detectionTile(d)),
                                 ],
                               ),
                             ),

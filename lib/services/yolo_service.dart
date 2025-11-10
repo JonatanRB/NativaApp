@@ -13,11 +13,15 @@ class YoloService {
 
   // Configuración para YOLOv11
   static const int inputSize = 640;
-  static const int numClasses = 1; // Cambia según tus clases
-  static const int numDetections = 8400; // YOLOv11 genera 8400 detecciones
+  static const int numClasses = 2; // ⚠️ CAMBIADO: 2 clases (mezquite y garambullo)
+  static const int numDetections = 8400;
 
-  // Tus etiquetas de clases
-  static const List<String> labels = ['planta'];
+  // ⚠️ IMPORTANTE: Las etiquetas deben estar en el MISMO ORDEN que entrenaste
+  // Si entrenaste primero garambullo y luego mezquite, déjalas así:
+  static const List<String> labels = ['garambullo', 'mesquite'];
+  
+  // Si entrenaste en otro orden, cámbialas según tu data.yaml:
+  // static const List<String> labels = ['mezquite', 'garambullo'];
 
   Future<void> loadModel() async {
     if (_modelLoaded) return;
@@ -27,18 +31,17 @@ class YoloService {
         'assets/models/best_32.tflite',
         options: InterpreterOptions()
           ..threads = 4
-          ..useNnApiForAndroid = true, // Aceleración hardware en Android
+          ..useNnApiForAndroid = true,
       );
       _modelLoaded = true;
       
-      // Información del modelo
       final inputShape = _interpreter!.getInputTensor(0).shape;
       final outputShape = _interpreter!.getOutputTensor(0).shape;
       
       print('✅ Modelo cargado correctamente:');
       print('   Input shape: $inputShape');
       print('   Output shape: $outputShape');
-      print('   Expected: [1, ${4 + numClasses}, $numDetections]');
+      print('   Clases: ${labels.join(", ")}');
     } catch (e) {
       print('❌ Error cargando modelo: $e');
       throw Exception('No se pudo cargar el modelo: $e');
@@ -56,7 +59,6 @@ class YoloService {
         throw Exception('El archivo de imagen no existe');
       }
 
-      // Leer y decodificar imagen
       final bytes = await imageFile.readAsBytes();
       img.Image? image = img.decodeImage(bytes);
       if (image == null) {
@@ -65,7 +67,6 @@ class YoloService {
 
       print('📏 Imagen original: ${image.width}x${image.height}');
       
-      // Redimensionar manteniendo aspect ratio (opcional)
       final resized = img.copyResize(
         image,
         width: inputSize,
@@ -75,17 +76,16 @@ class YoloService {
       
       print('📐 Imagen redimensionada: ${resized.width}x${resized.height}');
 
-      // Preparar input (formato YOLOv11: [1, 640, 640, 3])
+      // Preparar input
       final input = _imageToFloat32List(resized);
 
-      // Preparar output (formato YOLOv11: [1, 5, 8400] para 1 clase)
-      // [1, 4+numClasses, 8400]
+      // Preparar output [1, 6, 8400] para 2 clases (4 bbox + 2 scores)
       final outputShape = _interpreter!.getOutputTensor(0).shape;
       final output = List.generate(
-        outputShape[0], // 1
+        outputShape[0],
         (_) => List.generate(
-          outputShape[1], // 4 + numClasses (5 para 1 clase)
-          (_) => List.filled(outputShape[2], 0.0), // 8400
+          outputShape[1],
+          (_) => List.filled(outputShape[2], 0.0),
         ),
       );
 
@@ -119,11 +119,9 @@ class YoloService {
     }
   }
 
-  // Convertir imagen a Float32List normalizado [0, 1]
   List<List<List<List<double>>>> _imageToFloat32List(img.Image image) {
     print('🧮 Convirtiendo imagen a tensor Float32...');
     
-    // Formato: [1, height, width, 3]
     return [
       List.generate(
         image.height,
@@ -142,10 +140,6 @@ class YoloService {
     ];
   }
 
-  // Parsear salida de YOLOv11
-  // Formato de salida: [4+numClasses, 8400]
-  // Primeras 4 filas: [x_center, y_center, width, height] (normalized)
-  // Siguientes numClasses filas: scores de cada clase
   List<Detection> _parseYoloOutput(
     List<List<double>> output,
     double threshold,
@@ -153,19 +147,19 @@ class YoloService {
     int originalHeight,
   ) {
     final detections = <Detection>[];
-    final numBoxes = output[0].length; // 8400
+    final numBoxes = output[0].length;
 
     print('📦 Analizando $numBoxes cajas...');
     int validBoxes = 0;
 
     for (int i = 0; i < numBoxes; i++) {
-      // Extraer coordenadas (normalizadas 0-1)
+      // Extraer coordenadas normalizadas
       final centerX = output[0][i];
       final centerY = output[1][i];
       final width = output[2][i];
       final height = output[3][i];
 
-      // Encontrar la clase con mayor confianza
+      // Encontrar clase con mayor confianza
       double maxScore = 0.0;
       int maxClassIndex = 0;
 
@@ -181,8 +175,7 @@ class YoloService {
       if (maxScore < threshold) continue;
       validBoxes++;
 
-      // Convertir coordenadas normalizadas a píxeles de imagen original
-      // YOLOv11 usa coordenadas relativas al tamaño de entrada (640x640)
+      // Convertir a píxeles de imagen original
       final x = centerX * originalWidth;
       final y = centerY * originalHeight;
       final w = width * originalWidth;
@@ -201,21 +194,18 @@ class YoloService {
     print('📊 Cajas válidas (score > $threshold): $validBoxes');
     print('🔄 Aplicando NMS...');
     
-    // Aplicar Non-Maximum Suppression
     final filtered = _nonMaximumSuppression(detections, 0.45);
     print('✨ Después de NMS: ${filtered.length} detecciones');
     
     return filtered;
   }
 
-  // Non-Maximum Suppression para eliminar detecciones duplicadas
   List<Detection> _nonMaximumSuppression(
     List<Detection> detections,
     double iouThreshold,
   ) {
     if (detections.isEmpty) return [];
 
-    // Ordenar por confianza (mayor a menor)
     detections.sort((a, b) => b.score.compareTo(a.score));
 
     final selected = <Detection>[];
@@ -226,14 +216,11 @@ class YoloService {
 
       selected.add(detections[i]);
 
-      // Comparar con el resto de detecciones
       for (int j = i + 1; j < detections.length; j++) {
         if (suppressed[j]) continue;
 
-        // Calcular IoU
         final iou = _calculateIoU(detections[i], detections[j]);
 
-        // Si el IoU es alto y es la misma clase, suprimir
         if (iou > iouThreshold && 
             detections[i].label == detections[j].label) {
           suppressed[j] = true;
@@ -244,9 +231,7 @@ class YoloService {
     return selected;
   }
 
-  // Calcular Intersection over Union (IoU)
   double _calculateIoU(Detection a, Detection b) {
-    // Convertir de (center_x, center_y, w, h) a (x1, y1, x2, y2)
     final x1_a = a.x - a.w / 2;
     final y1_a = a.y - a.h / 2;
     final x2_a = a.x + a.w / 2;
@@ -257,7 +242,6 @@ class YoloService {
     final x2_b = b.x + b.w / 2;
     final y2_b = b.y + b.h / 2;
 
-    // Calcular intersección
     final x1_inter = x1_a > x1_b ? x1_a : x1_b;
     final y1_inter = y1_a > y1_b ? y1_a : y1_b;
     final x2_inter = x2_a < x2_b ? x2_a : x2_b;
@@ -267,12 +251,10 @@ class YoloService {
     final intersectionHeight = (y2_inter - y1_inter).clamp(0.0, double.infinity);
     final intersectionArea = intersectionWidth * intersectionHeight;
 
-    // Calcular unión
     final areaA = a.w * a.h;
     final areaB = b.w * b.h;
     final unionArea = areaA + areaB - intersectionArea;
 
-    // Retornar IoU
     return unionArea > 0 ? intersectionArea / unionArea : 0.0;
   }
 
