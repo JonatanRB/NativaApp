@@ -128,7 +128,7 @@ class _LoginScreen2State extends State<LoginScreen2> {
                             style: const TextStyle(color: kDarkGreen, fontWeight: FontWeight.bold),
                             obscureText: _isPasswordObscured,
                             validator: (value) {
-                               if (value == null || value.isEmpty) {
+                                if (value == null || value.isEmpty) {
                                 return 'Por favor ingresa tu contraseña';
                               }
                               return null;
