@@ -24,9 +24,11 @@ class PlantDatabase {
       commonName: 'Garambullo',
       scientificName: 'Myrtillocactus geometrizans',
       description:
-          'El garambullo es un cactus columnar originario del altiplano mexicano. '
-          'Produce pequeños frutos de color morado comestibles y ricos en antioxidantes. '
-          'Es una planta muy resistente a la sequía y al calor.',
+          'El garambullo es conocido por sus frutos ricos en antioxidantes, vitaminas '
+          'y compuestos antiinflamatorios. Sus bayas se utilizan tradicionalmente para '
+          'ayudar a regular los niveles de glucosa, fortalecer el sistema inmune y '
+          'proteger contra el daño celular. También se le atribuyen beneficios para '
+          'mejorar la digestión y apoyar la salud cardiovascular.',
       care:
           'Requiere un suelo arenoso con buen drenaje. Evita el exceso de riego y '
           'las heladas prolongadas. Puede podarse para controlar su crecimiento.',
@@ -38,10 +40,10 @@ class PlantDatabase {
       commonName: 'Mezquite',
       scientificName: 'Prosopis laevigata',
       description:
-          'El mezquite es un árbol nativo de zonas áridas y semiáridas de México. '
-          'Se caracteriza por su madera dura, su resistencia a la sequía y su capacidad '
-          'para fijar nitrógeno al suelo. Produce vainas dulces aprovechables como '
-          'alimento y forraje.',
+          'El mezquite posee propiedades medicinales ampliamente utilizadas en la herbolaria tradicional. '
+          'La corteza y las hojas se emplean como antiinflamatorios y astringentes, útiles para aliviar '
+          'dolores leves, irritaciones y malestares gastrointestinales. Las vainas dulces se aprovechan en '
+          'infusiones para apoyar el control de azúcar en sangre y mejorar la digestión.',
       care:
           'Crece mejor en suelos secos o ligeramente alcalinos. No requiere fertilización. '
           'Podar ramas secas o dañadas ocasionalmente.',
